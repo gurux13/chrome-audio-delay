@@ -37,8 +37,8 @@ public:
 			log.output(*this);
 		}
 	};
-	LogStream&& log() {
-		return LogStream(*this); 
+	LogStream log() {
+		return LogStream(*this);
 	}
 	Logger() {
 		WSADATA wsaData;
