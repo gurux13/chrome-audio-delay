@@ -3,7 +3,7 @@
 #include "framework.h"
 #include "threads.hpp"
 
-//#define _DEBUG
+// #define _DEBUG
 
 #pragma region typedefs
 using lockguard_t = std::lock_guard<std::mutex>;
@@ -37,13 +37,8 @@ public:
 			log.output(*this);
 		}
 	};
-	LogStream* CurrentlogStream = nullptr;
-	LogStream& log() {
-		if (CurrentlogStream != nullptr) {
-			delete CurrentlogStream;
-		}
-		CurrentlogStream = new LogStream(*this);
-		return *CurrentlogStream;
+	LogStream&& log() {
+		return LogStream(*this); 
 	}
 	Logger() {
 		WSADATA wsaData;
@@ -144,6 +139,7 @@ struct Context
 	PVOID m_OriginalGetPosition;
 	PVOID m_OriginalGetService;
 	PVOID m_OriginalActivate;
+	PVOID m_OriginalDeviceRelease;
 	PVOID m_OriginalClientRelease;
 	PVOID m_OriginalClockRelease;
 };
@@ -210,6 +206,8 @@ HRESULT InstallComInterfaceHooks(IUnknown* originalInterface, REFIID riid)
 		}
 
 		HookMethod(so, (PVOID)Hook::Activate, &g_Context->m_OriginalActivate, 3);
+		HookMethod(so, (PVOID)Hook::ReleaseDevice, &g_Context->m_OriginalDeviceRelease, 2);
+
 		DWORD tmp;
 		::VirtualProtect(*(PVOID**)(originalInterface), sizeof(LONG_PTR) * 4, dwOld, &tmp);
 	}
@@ -290,6 +288,25 @@ STDMETHODIMP Hook::GetPosition(IUnknown* This, UINT64* position, UINT64* timesta
 }
 
 typedef HRESULT(WINAPI* Release_T)(IUnknown* This);
+STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseDevice(IUnknown* This)
+{
+	auto result = ((Release_T)(g_Context->m_OriginalDeviceRelease))(This);
+	if (result == 0) {
+		{
+			lockguard_t guard(audioClientToDeviceMap.mtx);
+			std::list<LPVOID> keysToDelete;
+			for (auto entry : audioClientToDeviceMap) {
+				if (entry.second == This) {
+					keysToDelete.push_back(entry.first);
+				}
+			}
+			for (auto ptr : keysToDelete) {
+				audioClientToDeviceMap.erase(ptr);
+			}
+		}
+	}
+	return result;
+}
 
 STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseClient(IUnknown* This)
 {
