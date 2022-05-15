@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32210.238
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManualInject", "ManualInject\ManualInject.vcxproj", "{20182A8C-47C8-45A5-B48A-F6497FEE23D9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Configurator", "Configurator\Configurator.csproj", "{653CC30C-9F8E-4FA8-8CCF-536E6B834B24}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InjectedDll", "InjectedDll\InjectedDll.vcxproj", "{C4AA62DE-621D-4115-82FA-3022F610FE85}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{20182A8C-47C8-45A5-B48A-F6497FEE23D9}.Debug|x64.ActiveCfg = Debug|x64
+		{20182A8C-47C8-45A5-B48A-F6497FEE23D9}.Debug|x64.Build.0 = Debug|x64
+		{20182A8C-47C8-45A5-B48A-F6497FEE23D9}.Release|x64.ActiveCfg = Release|x64
+		{20182A8C-47C8-45A5-B48A-F6497FEE23D9}.Release|x64.Build.0 = Release|x64
+		{653CC30C-9F8E-4FA8-8CCF-536E6B834B24}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{653CC30C-9F8E-4FA8-8CCF-536E6B834B24}.Debug|x64.Build.0 = Debug|Any CPU
+		{653CC30C-9F8E-4FA8-8CCF-536E6B834B24}.Release|x64.ActiveCfg = Release|Any CPU
+		{653CC30C-9F8E-4FA8-8CCF-536E6B834B24}.Release|x64.Build.0 = Release|Any CPU
+		{C4AA62DE-621D-4115-82FA-3022F610FE85}.Debug|x64.ActiveCfg = Debug|x64
+		{C4AA62DE-621D-4115-82FA-3022F610FE85}.Debug|x64.Build.0 = Debug|x64
+		{C4AA62DE-621D-4115-82FA-3022F610FE85}.Release|x64.ActiveCfg = Release|x64
+		{C4AA62DE-621D-4115-82FA-3022F610FE85}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5DDDB65B-49E5-4EFD-AC11-C4AF4CA1409D}
+	EndGlobalSection
+EndGlobal

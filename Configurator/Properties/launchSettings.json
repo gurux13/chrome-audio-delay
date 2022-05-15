@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Configurator": {
+      "commandName": "Project",
+      "workingDirectory": "Y:\\github\\Chrome-Audio-Delay-Patcher\\output"
+    }
+  }
+}
