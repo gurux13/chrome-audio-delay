@@ -154,7 +154,8 @@
       <AdditionalDependencies>ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>if not exist $(SolutionDir)output\NUL mkdir $(SolutionDir)output</Command>
+      <Command>if not exist $(SolutionDir)output\NUL mkdir $(SolutionDir)output
+xcopy /e /y $(TargetDir)* $(SolutionDir)output</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

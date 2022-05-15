@@ -31,40 +31,38 @@ namespace Configurator
             public string Type { get; set; }
             public string Name { get; set; }
         }
-        public List<AudioEndpoint> GetAudioEndpoints()
+        public List<AudioEndpointDelay> GetAudioEndpointDelays()
         {
-            List<AudioEndpoint> rv = new List<AudioEndpoint>();
-            var devices = Registry.LocalMachine.OpenSubKey(immKey);
-            foreach (var skId in devices.GetSubKeyNames())
+            List<AudioEndpointDelay> rv = new List<AudioEndpointDelay>();
+            using (var devices = Registry.LocalMachine.OpenSubKey(gx13Key))
             {
-                var skey = devices.OpenSubKey(skId + "\\Properties");
-                var id = skey.GetValue("{9c119480-ddc2-4954-a150-5bd240d454ad},2");
-                var type = skey.GetValue("{a45c254e-df1c-4efd-8020-67d146a850e0},2");
-                var name = skey.GetValue("{b3f8fa53-0004-438e-9003-51a46e139bfc},6");
-                if (id != null && id is string && type != null && type is string)
+                foreach (var deviceId in devices.GetSubKeyNames())
                 {
-                    var entry = new AudioEndpoint()
+                    using (var key = devices.OpenSubKey(deviceId))
                     {
-                        Id = id.ToString().Replace(@"SWD\MMDEVAPI\", ""),
-                        Name = name?.ToString(),
-                        Type = type.ToString()
-                    };
-                    rv.Add(entry);
+                        var delay = (Int32)key.GetValue("Delay");
+                        var name = (string)key.GetValue("Name");
+                        var type = (string)key.GetValue("Type");
+                        rv.Add(new AudioEndpointDelay { Delay = (UInt32)(Int32)delay, Id = deviceId, Name = name, Type = type });
+                    }
                 }
             }
             return rv;
         }
-        public List<AudioEndpointDelay> GetAudioEndpointDelays()
+        public void UpdateEndpointDelay(AudioEndpointDelay delay)
         {
-            List<AudioEndpointDelay> rv = new List<AudioEndpointDelay>();
-            var devices = Registry.LocalMachine.OpenSubKey(gx13Key);
-            foreach (var device in devices.GetValueNames())
+            using (var key = Registry.LocalMachine.CreateSubKey(gx13Key + "\\" + delay.Id))
             {
-                var delay = devices.GetValue(device);
-                rv.Add(new AudioEndpointDelay { Delay = (UInt32)(Int32) delay, Id = device });
+                key.SetValue("Delay", (Int32)delay.Delay);
+                key.SetValue("Name", delay.Name);
+                key.SetValue("Type", delay.Type);
             }
-            return rv;
         }
+        public void RemoveEndpointDelay(AudioEndpointDelay delay)
+        {
+            Registry.LocalMachine.DeleteSubKey(gx13Key + "\\" + delay.Id);
+        }
+
         Guid devTypeProperty = Guid.Parse("{a45c254e-df1c-4efd-8020-67d146a850e0}");
         string GetEndpointType(MMDevice dev)
         {
@@ -85,23 +83,11 @@ namespace Configurator
             
             foreach (var endpoint in endpoints)
             {
-                string s = "";
-                for (int i = 0; i < endpoint.Properties.Count; i++)
-                {
-                    if (endpoint.Properties[i].Value is string)
-                    {
-                        s += i.ToString() + " -> " + endpoint.Properties[i].Value as string + "\n";
-                    }
-                }
                 endpoint.Dispose();
             }
             return rv.ToList();
         }
-        public void UpdateAudioEndpointDelay(AudioEndpointDelay delay)
-        {
-            var devices = Registry.LocalMachine.OpenSubKey(gx13Key, true);
-            devices.SetValue(delay.Id, delay.Delay, RegistryValueKind.DWord);
-        }
+
         string GetCurFolder()
         {
             return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);

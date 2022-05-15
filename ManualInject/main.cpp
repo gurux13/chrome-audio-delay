@@ -26,7 +26,7 @@ int WINAPI WinMain(HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is th
                 //std::wcout << "Found chrome (" << pid << "), cmdline: " << cmdline << "\n";
                 if (cmdline.find(L"--utility-sub-type=audio.mojom.AudioService") != std::wstring::npos) {
                     std::wcout << "Found process " << pid << ", injecting...\n";
-                    Inject(pid, L"ChromePatcherDll.dll");
+                    Inject(pid, L"InjectedDll.dll");
                 }
             }
 

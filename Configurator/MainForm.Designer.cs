@@ -174,6 +174,7 @@ namespace Configurator
             this.btnMoveEndpoint.TabIndex = 5;
             this.btnMoveEndpoint.Text = "->";
             this.btnMoveEndpoint.UseVisualStyleBackColor = true;
+            this.btnMoveEndpoint.Click += new System.EventHandler(this.btnMoveEndpoint_Click);
             // 
             // lblLeftLabel
             // 

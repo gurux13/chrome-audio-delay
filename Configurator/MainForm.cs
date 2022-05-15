@@ -14,15 +14,15 @@ namespace Configurator
 {
     public partial class MainForm : Form
     {
-        SystemHelper registry = new SystemHelper();
+        SystemHelper systemHelper = new SystemHelper();
         public MainForm()
         {
             InitializeComponent();
         }
 
-        void SetDelay(SystemHelper.AudioEndpoint audioEndpoint, int delay)
+        void SetDelay(SystemHelper.AudioEndpointDelay delay)
         {
-            registry.UpdateAudioEndpointDelay(new SystemHelper.AudioEndpointDelay { Id = audioEndpoint.Id, Delay = (UInt32)delay });
+            systemHelper.UpdateEndpointDelay(delay);
         }
 
         Process GetInjectorProcess()
@@ -44,6 +44,7 @@ namespace Configurator
                 }
                 dgvAllItems.Rows.Add(new string[] { endpoint.Name, endpoint.Type });
                 var row = dgvAllItems.Rows[dgvAllItems.Rows.Count - 1];
+                row.Tag = endpoint;
                 if (endpoint.State == CoreAudio.DEVICE_STATE.DEVICE_STATE_ACTIVE)
                 {
                     foreach (DataGridViewCell cell in row.Cells)
@@ -56,72 +57,91 @@ namespace Configurator
             }
         }
 
-
-        private void btnRefresh_Click(object sender, EventArgs e)
+        private void PopulateOverrides(List<SystemHelper.AudioEndpoint> endpoints, List<SystemHelper.AudioEndpointDelay> selectedEndpoints)
         {
-            bool isRunning = GetInjectorProcess() != null;
-            hadRunningLastRefresh = isRunning;
-            lblIsRunning.Text = isRunning ? "Running" : "Not Running";
-            lblIsRunning.ForeColor = isRunning ? Color.Green : Color.Red;
-            btnStartStop.Text = isRunning ? "Stop now" : "Start now";
-            cbStartWithWindows.Checked = registry.IsAutoStart();
-            var endpoints = registry.GetCurrentEndpoints();
-            var delays = registry.GetAudioEndpointDelays();
-            PopulateDgv(endpoints, delays);
-
+            const int padding = 10;
+            Dictionary<string, SystemHelper.AudioEndpoint> endpointsDict = endpoints.ToDictionary(x => x.Id);
+            pnlDevices.SuspendLayout();
             pnlDevices.Controls.Clear();
             int curY = 0;
-            foreach (var endpoint in endpoints)
+            foreach (var endpoint in selectedEndpoints)
             {
+                endpointsDict.TryGetValue(endpoint.Id, out var sysEndpoint);
+                var button = new Button();
+                button.Text = "X";
+                button.Left = 0;
+                button.Top = curY;
+                button.Width = button.Height = 50;
+                button.Click += (s, e) =>
+                {
+                    systemHelper.RemoveEndpointDelay(endpoint);
+                    btnRefresh_Click(s, e);
+                };
+                pnlDevices.Controls.Add(button);
                 var label = new Label();
                 label.Text = (endpoint.Name ?? "") + " (" + endpoint.Type + ")";
-                if (endpoint.State == CoreAudio.DEVICE_STATE.DEVICE_STATE_ACTIVE)
+                if (sysEndpoint?.State == CoreAudio.DEVICE_STATE.DEVICE_STATE_ACTIVE)
                 {
                     label.Font = new Font(label.Font, FontStyle.Bold);
                 }
+                label.Left = button.Right + padding;
                 label.Top = curY;
                 label.Width = pnlDevices.Width;
                 label.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
                 pnlDevices.Controls.Add(label);
-                curY = label.Bottom + 5;
+                curY = label.Bottom + padding;
                 var lblValue = new Label();
                 lblValue.Top = curY;
                 lblValue.TextAlign = ContentAlignment.MiddleRight;
                 lblValue.Text = "0ms";
                 lblValue.Width = 60;
-                lblValue.Left = pnlDevices.Width - 5 - lblValue.Width;
+                lblValue.Left = pnlDevices.Width - padding - lblValue.Width -(pnlDevices.VerticalScroll.Visible ? 60 : 0);
                 lblValue.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 pnlDevices.Controls.Add(lblValue);
                 var trackBar = new TrackBar();
+                trackBar.Left = label.Left;
                 trackBar.Minimum = 0;
                 trackBar.Maximum = 500;
-                var delay = delays.FirstOrDefault(x => x.Id == endpoint.Id);
                 trackBar.ValueChanged += (sender, e) =>
                 {
                     lblValue.Text = trackBar.Value + "ms";
-                    SetDelay(endpoint, trackBar.Value);
+                    endpoint.Delay = (uint)trackBar.Value;
+                    SetDelay(endpoint);
                 };
-                if (delay != null)
-                {
-                    trackBar.Value = Math.Max(0, Math.Min(500, (int)delay.Delay));
-
-                }
-                trackBar.Width = pnlDevices.Width - lblValue.Width;
+                trackBar.Value = Math.Max(0, Math.Min(500, (int)endpoint.Delay));
+                trackBar.Width = lblValue.Left - trackBar.Left - padding;
                 trackBar.Top = curY;
                 trackBar.TickFrequency = 100;
                 trackBar.TickStyle = TickStyle.Both;
                 trackBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 
+                button.Top = (trackBar.Bottom + label.Top - button.Height) / 2;
+
                 pnlDevices.Controls.Add(trackBar);
                 curY = trackBar.Bottom + 5;
             }
-            var newHeight = Math.Min(600, curY);
-            this.Height = newHeight + pnlDevices.Top + (this.Bottom - pnlDevices.Bottom);
+            pnlDevices.ResumeLayout();
+        }
+
+        private void btnRefresh_Click(object sender, EventArgs e)
+        {
+            this.SuspendLayout();
+            bool isRunning = GetInjectorProcess() != null;
+            hadRunningLastRefresh = isRunning;
+            lblIsRunning.Text = isRunning ? "Running" : "Not Running";
+            lblIsRunning.ForeColor = isRunning ? Color.Green : Color.Red;
+            btnStartStop.Text = isRunning ? "Stop now" : "Start now";
+            cbStartWithWindows.Checked = systemHelper.IsAutoStart();
+            var endpoints = systemHelper.GetCurrentEndpoints();
+            var delays = systemHelper.GetAudioEndpointDelays();
+            PopulateDgv(endpoints, delays);
+            PopulateOverrides(endpoints, delays);
+            this.ResumeLayout(true);
         }
 
         private void cbStartWithWindows_CheckedChanged(object sender, EventArgs e)
         {
-            registry.SetAutoStart(cbStartWithWindows.Checked);
+            systemHelper.SetAutoStart(cbStartWithWindows.Checked);
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -145,6 +165,7 @@ namespace Configurator
             else
             {
                 Process.Start(".\\ManualInject.exe");
+
             }
             btnRefresh_Click(sender, e);
         }
@@ -160,6 +181,24 @@ namespace Configurator
             lblLeftLabel.Left = pnlAllEndpoints.Left + (pnlAllEndpoints.Width - lblLeftLabel.Width) / 2;
             lblRightLabel.Left = pnlDevices.Left + (pnlDevices.Width - lblRightLabel.Width) / 2;
 
+        }
+
+        private void btnMoveEndpoint_Click(object sender, EventArgs e)
+        {
+            if (dgvAllItems.SelectedRows.Count != 1)
+            {
+                return;
+            }
+            var endpoint = dgvAllItems.SelectedRows[0].Tag as SystemHelper.AudioEndpoint;
+            var delay = new SystemHelper.AudioEndpointDelay
+            {
+                Delay = 0,
+                Id = endpoint.Id,
+                Name = endpoint.Name,
+                Type = endpoint.Type,
+            };
+            systemHelper.UpdateEndpointDelay(delay);
+            btnRefresh_Click(sender, e);
         }
     }
 }
