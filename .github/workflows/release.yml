@@ -36,8 +36,12 @@ jobs:
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
       run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+    - name: Package
+      uses: montudor/action-zip@v1
+      with:
+        args: zip -qq -r ChromeAudioPatcher.zip output
     - name: Release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "output/*.*"
+        artifacts: "ChromeAudioPatcher.zip"
         token: ${{ secrets.GITHUB_TOKEN }}
