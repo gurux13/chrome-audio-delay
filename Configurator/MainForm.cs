@@ -146,6 +146,7 @@ namespace Configurator
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            systemHelper.Initialize();
             btnRefresh_Click(sender, e);
         }
 

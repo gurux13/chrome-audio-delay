@@ -31,6 +31,12 @@ namespace Configurator
             public string Type { get; set; }
             public string Name { get; set; }
         }
+
+        public void Initialize()
+        {
+            Registry.LocalMachine.CreateSubKey(gx13Key).Dispose();
+        }
+
         public List<AudioEndpointDelay> GetAudioEndpointDelays()
         {
             List<AudioEndpointDelay> rv = new List<AudioEndpointDelay>();
