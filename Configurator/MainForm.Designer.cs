@@ -29,6 +29,7 @@ namespace Configurator
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.cbStartWithWindows = new System.Windows.Forms.CheckBox();
             this.pnlDevices = new System.Windows.Forms.Panel();
@@ -43,6 +44,8 @@ namespace Configurator
             this.btnMoveEndpoint = new System.Windows.Forms.Button();
             this.lblLeftLabel = new System.Windows.Forms.Label();
             this.lblRightLabel = new System.Windows.Forms.Label();
+            this.btnExecutables = new System.Windows.Forms.Button();
+            this.tmrBlinkSelect = new System.Windows.Forms.Timer(this.components);
             this.pnlAllEndpoints.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvAllItems)).BeginInit();
             this.SuspendLayout();
@@ -196,11 +199,26 @@ namespace Configurator
             this.lblRightLabel.TabIndex = 7;
             this.lblRightLabel.Text = "Overridden Devices";
             // 
+            // btnExecutables
+            // 
+            this.btnExecutables.Location = new System.Drawing.Point(509, 13);
+            this.btnExecutables.Name = "btnExecutables";
+            this.btnExecutables.Size = new System.Drawing.Size(189, 47);
+            this.btnExecutables.TabIndex = 8;
+            this.btnExecutables.Text = "Choose Browsers";
+            this.btnExecutables.UseVisualStyleBackColor = true;
+            this.btnExecutables.Click += new System.EventHandler(this.btnExecutables_Click);
+            // 
+            // tmrBlinkSelect
+            // 
+            this.tmrBlinkSelect.Tick += new System.EventHandler(this.tmrBlinkSelect_Tick);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(828, 433);
+            this.Controls.Add(this.btnExecutables);
             this.Controls.Add(this.lblRightLabel);
             this.Controls.Add(this.lblLeftLabel);
             this.Controls.Add(this.btnMoveEndpoint);
@@ -237,6 +255,8 @@ namespace Configurator
         private System.Windows.Forms.DataGridViewTextBoxColumn colType;
         private System.Windows.Forms.Label lblLeftLabel;
         private System.Windows.Forms.Label lblRightLabel;
+        private System.Windows.Forms.Button btnExecutables;
+        private System.Windows.Forms.Timer tmrBlinkSelect;
     }
 }
 

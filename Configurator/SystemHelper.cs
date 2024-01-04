@@ -13,10 +13,14 @@ namespace Configurator
 {
     class SystemHelper
     {
-        const string gx13Key = @"SOFTWARE\gurux13\ChromePatcher\devices";
+        const string devicesKey = @"SOFTWARE\gurux13\ChromePatcher\devices";
+        const string executablesKey = @"SOFTWARE\gurux13\ChromePatcher\executables";
         const string immKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render";
         const string startupKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
         const string startupValueName = "gx13ChromePatcher";
+        const string exeNameResolverKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths";
+
+        RegistryKey rootKey = Registry.LocalMachine;
         public class AudioEndpoint
         {
             public string Id { get; set; }
@@ -34,13 +38,13 @@ namespace Configurator
 
         public void Initialize()
         {
-            Registry.LocalMachine.CreateSubKey(gx13Key).Dispose();
+            rootKey.CreateSubKey(devicesKey).Dispose();
         }
 
         public List<AudioEndpointDelay> GetAudioEndpointDelays()
         {
             List<AudioEndpointDelay> rv = new List<AudioEndpointDelay>();
-            using (var devices = Registry.LocalMachine.OpenSubKey(gx13Key))
+            using (var devices = rootKey.OpenSubKey(devicesKey))
             {
                 foreach (var deviceId in devices.GetSubKeyNames())
                 {
@@ -57,7 +61,7 @@ namespace Configurator
         }
         public void UpdateEndpointDelay(AudioEndpointDelay delay)
         {
-            using (var key = Registry.LocalMachine.CreateSubKey(gx13Key + "\\" + delay.Id))
+            using (var key = rootKey.CreateSubKey(devicesKey + "\\" + delay.Id))
             {
                 key.SetValue("Delay", (Int32)delay.Delay);
                 key.SetValue("Name", delay.Name);
@@ -66,7 +70,7 @@ namespace Configurator
         }
         public void RemoveEndpointDelay(AudioEndpointDelay delay)
         {
-            Registry.LocalMachine.DeleteSubKey(gx13Key + "\\" + delay.Id);
+            rootKey.DeleteSubKey(devicesKey + "\\" + delay.Id);
         }
 
         Guid devTypeProperty = Guid.Parse("{a45c254e-df1c-4efd-8020-67d146a850e0}");
@@ -94,6 +98,29 @@ namespace Configurator
             return rv.ToList();
         }
 
+        public List<string> GetExecutables()
+        {
+            var subkey = rootKey.OpenSubKey(executablesKey);
+            if (subkey == null)
+            {
+                return new List<string>();
+            }
+            return subkey?.GetValueNames().Where(x => !string.IsNullOrEmpty(x)).ToList();
+        }
+
+        public void AddExecutable(string path)
+        {
+            var subkey = rootKey.CreateSubKey(executablesKey);
+                                 // Time not important. Only life important.
+            subkey.SetValue(path, "Value not important. Only name important.");
+        }
+
+        public void DeleteExecutable(string path)
+        {
+            var subkey = rootKey.CreateSubKey(executablesKey);
+            subkey.DeleteValue(path, false);
+        }
+
         string GetCurFolder()
         {
             return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -108,6 +135,20 @@ namespace Configurator
             {
                 return ts.GetTask(startupValueName) != null;
             }
+        }
+
+        public string ResolveFileName(string name)
+        {
+            if (name.Contains("\\"))
+            {
+                return name;
+            }
+            var shortPath = Registry.LocalMachine.OpenSubKey(exeNameResolverKey)?.OpenSubKey(name)?.GetValue(null) as string;
+            if (shortPath == null)
+            {
+                return name;
+            }
+            return Path.GetFullPath(shortPath);
         }
         public void SetAutoStart(bool enabled)
         {

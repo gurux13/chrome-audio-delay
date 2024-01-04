@@ -10,6 +10,20 @@ typedef NTSTATUS(NTAPI* pfnNtQueryInformationProcess)(
     IN ULONG ProcessInformationLength,
     OUT PULONG ReturnLength OPTIONAL);
 
+std::wstring GetProcessPath(DWORD pid) {
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+    if (hProcess == INVALID_HANDLE_VALUE) {
+        return L"";
+    }
+    TCHAR filename[MAX_PATH];
+    if (GetModuleFileNameEx(hProcess, NULL, filename, MAX_PATH) == 0) {
+        CloseHandle(hProcess);
+        return filename;
+    }
+    CloseHandle(hProcess);
+    return L"";
+}
+
 std::wstring GetProcessCommandLine(DWORD pid) {
     pfnNtQueryInformationProcess gNtQueryInformationProcess = (pfnNtQueryInformationProcess)GetProcAddress(
         GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess");

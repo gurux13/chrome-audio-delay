@@ -144,15 +144,42 @@ namespace Configurator
             systemHelper.SetAutoStart(cbStartWithWindows.Checked);
         }
 
+        void RecalculateBrowserCount()
+        {
+            var count = systemHelper.GetExecutables().Count;
+            btnExecutables.Text = $"Select Browsers ({count})";
+            if (btnOriginalFont == null)
+            {
+                btnOriginalFont = btnExecutables.Font;
+                btnBoldFont = new Font(btnOriginalFont, FontStyle.Bold);
+            }
+            btnExecutables.Font = count == 0 ? btnBoldFont : btnOriginalFont;
+        }
         private void Form1_Load(object sender, EventArgs e)
         {
             systemHelper.Initialize();
             btnRefresh_Click(sender, e);
+            RecalculateBrowserCount();
+        }
+
+        void BlinkSelectBrowsers()
+        {
+            tmrRunsLeft = 5;
+            tmrBlinkSelect.Enabled = true;
         }
 
         private async void btnStartStop_Click(object sender, EventArgs e)
         {
+            
             var injectorProcess = GetInjectorProcess();
+            if (injectorProcess == null)
+            {
+                if (systemHelper.GetExecutables().Count == 0)
+                {
+                    BlinkSelectBrowsers();
+                    return;
+                }
+            }
             if (hadRunningLastRefresh != (injectorProcess != null))
             {
                 btnRefresh_Click(sender, e);
@@ -200,6 +227,33 @@ namespace Configurator
             };
             systemHelper.UpdateEndpointDelay(delay);
             btnRefresh_Click(sender, e);
+        }
+
+        private void btnExecutables_Click(object sender, EventArgs e)
+        {
+            (new BrowserSelector()).ShowDialog();
+            RecalculateBrowserCount();
+        }
+        Color? originalBtnColor = null;
+        Font? btnBoldFont = null;
+        Font? btnOriginalFont = null;
+        int tmrRunsLeft = 0;
+        private void tmrBlinkSelect_Tick(object sender, EventArgs e)
+        {
+            
+            if (originalBtnColor == null)
+            {
+                originalBtnColor = btnExecutables.ForeColor;
+            }
+            Color originalBtnColorNotNull = (Color)originalBtnColor;
+            if (tmrRunsLeft <= 0)
+            {
+                tmrBlinkSelect.Enabled = false;
+                btnExecutables.ForeColor = originalBtnColorNotNull;
+                return;
+            }
+            btnExecutables.ForeColor = btnExecutables.ForeColor == originalBtnColorNotNull ? Color.Red : originalBtnColorNotNull;
+            --tmrRunsLeft;
         }
     }
 }
