@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "inject.h"
+#include <processthreadsapi.h>
 
 typedef HMODULE(WINAPI* pLoadLibraryA)(LPCSTR);
 typedef FARPROC(WINAPI* pGetProcAddress)(HMODULE, LPCSTR);
+typedef VOID(WINAPI* pExitThread)(DWORD);
 
 typedef BOOL(WINAPI* PDLL_MAIN)(HMODULE, DWORD, PVOID);
 
@@ -14,9 +16,10 @@ typedef struct _MANUAL_INJECT
     PIMAGE_IMPORT_DESCRIPTOR ImportDirectory;
     pLoadLibraryA fnLoadLibraryA;
     pGetProcAddress fnGetProcAddress;
+    //pExitThread fnExitThread;
 }MANUAL_INJECT, * PMANUAL_INJECT;
 
-DWORD WINAPI LoadDll(PVOID p)
+extern "C" __declspec(noinline) DWORD WINAPI LoadDll(PVOID p)
 {
     PMANUAL_INJECT ManualInject;
 
@@ -33,8 +36,8 @@ DWORD WINAPI LoadDll(PVOID p)
     PIMAGE_THUNK_DATA FirstThunk, OrigFirstThunk;
 
     PDLL_MAIN EntryPoint;
-
     ManualInject = (PMANUAL_INJECT)p;
+
 
     pIBR = ManualInject->BaseRelocation;
     delta = (ULONGLONG)((LPBYTE)ManualInject->ImageBase - ManualInject->NtHeaders->OptionalHeader.ImageBase); // Calculate the delta
@@ -74,7 +77,8 @@ DWORD WINAPI LoadDll(PVOID p)
 
         if (!hModule)
         {
-            return FALSE;
+            //ManualInject->fnExitThread(1);
+            return 1;
         }
 
         while (OrigFirstThunk->u1.AddressOfData)
@@ -87,7 +91,8 @@ DWORD WINAPI LoadDll(PVOID p)
 
                 if (!Function)
                 {
-                    return FALSE;
+                    // ManualInject->fnExitThread(1);
+                    return 1;
                 }
 
                 FirstThunk->u1.Function = Function;
@@ -102,7 +107,8 @@ DWORD WINAPI LoadDll(PVOID p)
 
                 if (!Function)
                 {
-                    return FALSE;
+                    // ManualInject->fnExitThread(1);
+                    return 1;
                 }
 
                 FirstThunk->u1.Function = Function;
@@ -118,15 +124,25 @@ DWORD WINAPI LoadDll(PVOID p)
     if (ManualInject->NtHeaders->OptionalHeader.AddressOfEntryPoint)
     {
         EntryPoint = (PDLL_MAIN)((LPBYTE)ManualInject->ImageBase + ManualInject->NtHeaders->OptionalHeader.AddressOfEntryPoint);
-        return EntryPoint((HMODULE)ManualInject->ImageBase, DLL_PROCESS_ATTACH, NULL); // Call the entry point
+        EntryPoint((HMODULE)ManualInject->ImageBase, DLL_PROCESS_ATTACH, NULL); // Call the entry point
+        // ManualInject->fnExitThread(0);
+        return 0;
     }
-
-    return TRUE;
+    // ManualInject->fnExitThread(0);
+    return 0;
 }
 
-DWORD WINAPI LoadDllEnd()
+extern "C" __declspec(noinline) DWORD WINAPI LoadDllEnd()
 {
     return 0;
+}
+
+bool IsCfgActive(HANDLE hProcess) {
+    PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY policy_status;
+    if (!GetProcessMitigationPolicy(hProcess, ProcessControlFlowGuardPolicy, &policy_status, sizeof(policy_status))) {
+        return true;
+    }
+    return policy_status.EnableControlFlowGuard;
 }
 
 int Inject(DWORD pid, std::wstring dll)
@@ -141,7 +157,7 @@ int Inject(DWORD pid, std::wstring dll)
 
     TOKEN_PRIVILEGES tp;
     MANUAL_INJECT ManualInject;
-
+    LoadDllEnd();
     if (OpenProcessToken((HANDLE)-1, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
     {
         tp.PrivilegeCount = 1;
@@ -267,7 +283,9 @@ int Inject(DWORD pid, std::wstring dll)
 
     for (i = 0; i < pINH->FileHeader.NumberOfSections; i++)
     {
-        WriteProcessMemory(hProcess, (PVOID)((LPBYTE)image + pISH[i].VirtualAddress), (PVOID)((LPBYTE)buffer + pISH[i].PointerToRawData), pISH[i].SizeOfRawData, NULL);
+        if (!WriteProcessMemory(hProcess, (PVOID)((LPBYTE)image + pISH[i].VirtualAddress), (PVOID)((LPBYTE)buffer + pISH[i].PointerToRawData), pISH[i].SizeOfRawData, NULL)) {
+            perror("copying section");
+        }
         if (pISH[i].Characteristics & IMAGE_SCN_CNT_CODE) {
             VirtualProtectEx(hProcess, (PVOID)((LPBYTE)image + pISH[i].VirtualAddress), ((pISH[i].SizeOfRawData - 1) | 4095 + 1), PAGE_EXECUTE_READ, NULL);
             printf("Protected section %s (from %p size %d)\n", pISH[i].Name, (PVOID)((LPBYTE)image + pISH[i].VirtualAddress), ((pISH[i].SizeOfRawData - 1) | 4095) + 1);
@@ -275,7 +293,7 @@ int Inject(DWORD pid, std::wstring dll)
     }
 
     printf("\nAllocating memory for the loader code.\n");
-    mem = VirtualAllocEx(hProcess, NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE); // Allocate memory for the loader code
+    mem = VirtualAllocEx(hProcess, NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE); // Allocate memory for the loader code
 
     if (!mem)
     {
@@ -299,12 +317,47 @@ int Inject(DWORD pid, std::wstring dll)
     ManualInject.fnGetProcAddress = GetProcAddress;
 
     printf("\nWriting loader code to target process.\n");
+    unsigned char loader_buffer[4096];
+    memset(loader_buffer, 0, 4096);
+    auto ptr = loader_buffer;
+    memcpy(ptr, &ManualInject, sizeof(MANUAL_INJECT));
+    ptr += sizeof(MANUAL_INJECT);
+    memcpy(ptr, &LoadDll, (ULONGLONG)LoadDllEnd - (ULONGLONG)LoadDll);
+    printf("Loader data to be sent: ");
+    for (int i = 0; i < (ULONGLONG)LoadDllEnd - (ULONGLONG)LoadDll; ++i) {
+        printf("%02x ", ptr[i]);
+    }
+    printf("\n");
+    if (!WriteProcessMemory(hProcess, mem, loader_buffer, sizeof(MANUAL_INJECT) + (char*)(LoadDllEnd)-(char*)(LoadDll), NULL)) { // Write the loader information to target process
+        perror("Write loader");
+        VirtualFreeEx(hProcess, mem, 0, MEM_RELEASE);
+        VirtualFreeEx(hProcess, image, 0, MEM_RELEASE);
 
-    WriteProcessMemory(hProcess, mem, &ManualInject, sizeof(MANUAL_INJECT), NULL); // Write the loader information to target process
-    WriteProcessMemory(hProcess, (PVOID)((PMANUAL_INJECT)mem + 1), LoadDll, (ULONGLONG)LoadDllEnd - (ULONGLONG)LoadDll, NULL); // Write the loader code to target process
-    VirtualProtectEx(hProcess, (PVOID)((PMANUAL_INJECT)mem), (ULONGLONG)LoadDllEnd - (ULONGLONG)LoadDll + sizeof(MANUAL_INJECT), PAGE_EXECUTE_READ, NULL);
+        CloseHandle(hProcess);
+
+        VirtualFree(buffer, 0, MEM_RELEASE);
+        return 1;
+    }
+    DWORD oldprotect;
+    if (!VirtualProtectEx(hProcess, mem, 4096, PAGE_EXECUTE_READ, &oldprotect)) {
+        printf("Error: %d\n", GetLastError());
+    }
     printf("\nExecuting loader code.\n");
-    hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)((PMANUAL_INJECT)mem + 1), mem, 0, NULL); // Create a remote thread to execute the loader code
+    LPTHREAD_START_ROUTINE sleep = (LPTHREAD_START_ROUTINE)Sleep;
+    DWORD64 proper_start = (DWORD64)((PMANUAL_INJECT)mem + 1);
+    DWORD tid;
+
+    if (IsCfgActive(hProcess)) {
+        printf("Configuring CFG");
+        CFG_CALL_TARGET_INFO info;
+        info.Offset = proper_start - (DWORD64)mem;
+        info.Flags = CFG_CALL_TARGET_VALID;
+        if (!SetProcessValidCallTargets(hProcess, mem, 4096, 1, &info)) {
+            perror("CFG");
+        }
+    }
+    hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)proper_start, mem, 0, &tid); // Create a remote thread to execute the loader code
+    printf("Created thread %u\n", tid);
 
     if (!hThread)
     {
@@ -318,11 +371,12 @@ int Inject(DWORD pid, std::wstring dll)
         VirtualFree(buffer, 0, MEM_RELEASE);
         return -1;
     }
-
+    
     WaitForSingleObject(hThread, INFINITE);
     GetExitCodeThread(hThread, &ExitCode);
+    printf("Exit code: %x\n", ExitCode);
 
-    if (!ExitCode)
+    if (ExitCode)
     {
         VirtualFreeEx(hProcess, mem, 0, MEM_RELEASE);
         VirtualFreeEx(hProcess, image, 0, MEM_RELEASE);

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
 using System.Windows.Forms;
 
 namespace Configurator
@@ -17,7 +18,7 @@ namespace Configurator
         {
             {"Chrome", "chrome.exe" },
             {"Edge", "msedge.exe" },
-            {"Yandex.Browser", @"%LOCALAPPDATA%\Yandex\YandexBrowser\Application" },
+            {"Yandex.Browser", @"%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe" },
         };
         public BrowserSelector()
         {
@@ -54,7 +55,7 @@ namespace Configurator
             foreach (var browser in knownBrowsers)
             {
                 var path = systemHelper.ResolveFileName(browser.Value);
-                if (path != null && !allEnabled.Contains(path))
+                if (path != null && !allEnabled.Contains(path) && File.Exists(path))
                 {
                     dgvFound.Rows.Add(new string[] { browser.Key, path });
                 }

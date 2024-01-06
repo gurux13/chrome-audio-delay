@@ -5,6 +5,10 @@
 #include <psapi.h> // For access to GetModuleFileNameEx
 #include "cmdline.h"
 #include "inject.h"
+
+int main() {
+    WinMain(NULL, NULL, NULL, 0);
+}
 int WINAPI WinMain(HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is the "handle" to YOUR PROGRAM ITSELF.
     HINSTANCE hPrevInstance,// USELESS on modern windows (totally ignore hPrevInstance)
     LPSTR szCmdLine,        // Command line arguments.  similar to argv in standard C programs
@@ -50,7 +54,8 @@ int WINAPI WinMain(HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is th
                 //std::wcout << "Found chrome (" << pid << "), cmdline: " << cmdline << "\n";
                 if (cmdline.find(L"--utility-sub-type=audio.mojom.AudioService") != std::wstring::npos) {
                     std::wcout << "Found process " << pid << ", injecting...\n";
-                    Inject(pid, L"InjectedDll.dll");
+                    Inject(pid, L"Y:\\github\\Chrome-Audio-Delay-Patcher\\output\\InjectedDll.dll");
+                    //Inject(pid, L"InjectedDll.dll");
                 }
             }
 

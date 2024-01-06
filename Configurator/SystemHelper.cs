@@ -137,7 +137,7 @@ namespace Configurator
             }
         }
 
-        public string ResolveFileName(string name)
+        string ResolveFileNameFromRegistry(string name)
         {
             if (name.Contains("\\"))
             {
@@ -148,7 +148,12 @@ namespace Configurator
             {
                 return name;
             }
-            return Path.GetFullPath(shortPath);
+            return shortPath;
+        }
+
+        public string ResolveFileName(string name)
+        {
+            return Path.GetFullPath(Environment.ExpandEnvironmentVariables(ResolveFileNameFromRegistry(name)));
         }
         public void SetAutoStart(bool enabled)
         {

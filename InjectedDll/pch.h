@@ -21,7 +21,6 @@
 #include <immintrin.h>
 #include <iostream>
 #include <sstream>
-#include <Ws2tcpip.h>
 #include <Audioclient.h>
 #include <mmdeviceapi.h>
 #include <memory>

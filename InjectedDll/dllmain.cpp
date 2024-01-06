@@ -3,7 +3,7 @@
 #include "framework.h"
 #include "threads.hpp"
 
-// #define _DEBUG
+#define _DEBUG
 
 #pragma region typedefs
 using lockguard_t = std::lock_guard<std::mutex>;
@@ -41,28 +41,14 @@ public:
 		return LogStream(*this);
 	}
 	Logger() {
-		WSADATA wsaData;
-		WSAStartup(MAKEWORD(2, 2), &wsaData);
-		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		sockaddr_in connect_to;
-		inet_pton(AF_INET, "127.0.0.1", &connect_to.sin_addr);
-		//connect_to.sin_addr.S_un.S_addr = inet_pton();// inet_addr("127.0.0.1");
-		connect_to.sin_port = htons(7777);
-		connect_to.sin_family = AF_INET;
-		connect(sock, (sockaddr*)&connect_to, sizeof(connect_to));
+
 	}
 	friend class LogStream;
 private:
-	SOCKET sock;
 	void output(const LogStream& stream) {
 		auto wstr = stream.str();
-		char* str = (char*)malloc(wstr.length() + 1);
-		if (!str) {
-			return;
-		}
-		WideCharToMultiByte(1251, 0, wstr.c_str(), (int)wstr.length(), str, (int)wstr.length() + 1, 0, NULL);
-		send(sock, str, (int)wstr.length(), 0);
-		free(str);
+		wstr = L"[AudioDelayPatcher]" + wstr;
+		OutputDebugString(wstr.c_str());
 	}
 };
 Logger logger;
@@ -78,6 +64,7 @@ struct Offsets {
 };
 Offsets offsets;
 void FillOffsets(IMMDevice* device, IAudioClient* client, IAudioClock* clock) {
+	LOG("Filling offsets");
 	for (int i = 0; i < 100; ++i) {
 		if (*(((void**)clock) + i) == client) {
 			offsets.clockToClientPtr = i;
@@ -146,16 +133,22 @@ struct Context
 std::unique_ptr<Context> g_Context;
 HRESULT HookMethod(IUnknown* original, PVOID proxyMethod, PVOID* originalMethod, DWORD vtableOffset)
 {
+
 	PVOID* originalVtable = *(PVOID**)original;
 	if (originalVtable[vtableOffset] == proxyMethod)
 		return S_OK;
 	*originalMethod = originalVtable[vtableOffset];
 	originalVtable[vtableOffset] = proxyMethod;
+	LOG("Hooked method: on " << original << ", replacing " << *originalMethod << " with proxy " << proxyMethod << " at offset " << vtableOffset);
 	return S_OK;
 }
 
 HRESULT InstallComInterfaceHooks(IUnknown* originalInterface, REFIID riid)
 {
+	OLECHAR* guidString;
+	StringFromCLSID(riid, &guidString);
+	::CoTaskMemFree(guidString);
+	LOG("Installing hooks to IID " << guidString);
 	HRESULT hr = S_OK;
 	if (!g_Context) {
 		g_Context.reset(new Context);
@@ -220,8 +213,10 @@ typedef HRESULT(WINAPI* GetPosition_T)(IUnknown* This, UINT64* position, UINT64*
 sync_map<PVOID, UINT64> frequencies;
 STDMETHODIMP Hook::GetPosition(IUnknown* This, UINT64* position, UINT64* timestamp)
 {
+	LOG("GetPosition");
 	auto result = ((GetPosition_T)g_Context->m_OriginalGetPosition)(This, position, timestamp);
 	if (FAILED(result)) {
+		LOG("GetPosition failed");
 		return result;
 	}
 	IFD(logger.log() << "GetPosition for " << (void*)This << ", normally: " << *position << ", " << *timestamp << "\n");
@@ -290,6 +285,7 @@ STDMETHODIMP Hook::GetPosition(IUnknown* This, UINT64* position, UINT64* timesta
 typedef HRESULT(WINAPI* Release_T)(IUnknown* This);
 STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseDevice(IUnknown* This)
 {
+	LOG("ReleaseDevice");
 	auto result = ((Release_T)(g_Context->m_OriginalDeviceRelease))(This);
 	if (result == 0) {
 		{
@@ -310,6 +306,7 @@ STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseDevice(IUnknown* This)
 
 STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseClient(IUnknown* This)
 {
+	LOG("ReleaseClient");
 	auto result = ((Release_T)(g_Context->m_OriginalClientRelease))(This);
 	if (result == 0) {
 		lockguard_t guard(audioClientToDeviceMap.mtx);
@@ -320,6 +317,7 @@ STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseClient(IUnknown* This)
 
 STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseClock(IUnknown* This)
 {
+	LOG("ReleaseClock");
 	auto result = ((Release_T)(g_Context->m_OriginalClockRelease))(This);
 	if (result == 0) {
 		lockguard_t guard2(clockToDeviceMap.mtx);
@@ -333,6 +331,7 @@ STDMETHODIMP_(HRESULT __stdcall) Hook::ReleaseClock(IUnknown* This)
 typedef HRESULT(WINAPI* GetService_T)(IUnknown* This, REFIID riid, void** ppv);
 STDMETHODIMP Hook::GetService(IUnknown* This, REFIID riid, void** ppv)
 {
+	LOG("GetService");
 	static std::mutex mtx;
 	auto result = ((GetService_T)g_Context->m_OriginalGetService)(This, riid, ppv);
 
@@ -364,6 +363,7 @@ STDMETHODIMP Hook::GetService(IUnknown* This, REFIID riid, void** ppv)
 typedef HRESULT(WINAPI* Activate_T)(IUnknown* This, REFIID iid, DWORD dwClsCtx, PROPVARIANT* pActivationParams, void** ppInterface);
 STDMETHODIMP Hook::Activate(IUnknown* This, REFIID iid, DWORD dwClsCtx, PROPVARIANT* pActivationParams, void** ppInterface)
 {
+	LOG("Activate");
 	static std::mutex mtx;
 	auto result = ((Activate_T)g_Context->m_OriginalActivate)(This, iid, dwClsCtx, pActivationParams, ppInterface);
 	if (FAILED(result)) {
@@ -387,6 +387,7 @@ STDMETHODIMP Hook::Activate(IUnknown* This, REFIID iid, DWORD dwClsCtx, PROPVARI
 
 
 void PatchAudioDelay() {
+	LOG("Patching audio delay");
 	REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
 	IMMDeviceEnumerator* pEnumerator = NULL;
 	IMMDevice* pDevice = NULL;
@@ -435,6 +436,7 @@ void PatchAudioDelay() {
 	pDevice->Release();
 	pEnumerator->Release();
 Exit:
+	LOG("Patching audio delay -- done");
 	return;
 }
 
@@ -502,7 +504,52 @@ BOOL APIENTRY ThreadMain(LPVOID lpModule) {
 	return TRUE;
 }
 
+bool IsCfgActive(HANDLE hProcess) {
+	PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY policy_status;
+	if (!GetProcessMitigationPolicy(hProcess, ProcessControlFlowGuardPolicy, &policy_status, sizeof(policy_status))) {
+		return true;
+	}
+	return policy_status.EnableControlFlowGuard;
+}
+
+void AllowInCFG() {
+	auto current_process = GetCurrentProcess();
+	if (!IsCfgActive(current_process)) {
+		LOG("CFG not active, not configuring");
+		return;
+	}
+
+	LOG("Configuring CFG");
+	void* all_indirect_functions[] = {
+	Hook::Activate,
+	Hook::GetPosition,
+	Hook::GetService,
+	Hook::ReleaseClient,
+	Hook::ReleaseClock,
+	Hook::ReleaseDevice,
+	RegistryThreadMain
+	};
+	DWORD64* all_indirect_functions_int = (DWORD64*)(all_indirect_functions);
+	DWORD64 range_start = all_indirect_functions_int[0];
+	DWORD64 range_end = all_indirect_functions_int[0];
+	for (int i = 0; i < sizeof(all_indirect_functions) / 8; ++i) {
+		range_start = min(range_start, all_indirect_functions_int[i]);
+		range_end = max(range_end, all_indirect_functions_int[i]);
+	}
+	CFG_CALL_TARGET_INFO info[sizeof(all_indirect_functions) / 8];
+	for (int i = 0; i < sizeof(all_indirect_functions) / 8; ++i) {
+		info[i].Offset = all_indirect_functions_int[i] - range_start;
+		info[i].Flags = CFG_CALL_TARGET_VALID;
+	}
+	//__debugbreak();
+	if (!SetProcessValidCallTargets(current_process, (void*)range_start, range_end - range_start + 80, sizeof(all_indirect_functions) / 8, info)) {
+		LOG("CFG ERROR: " << GetLastError());
+	}
+	LOG("Done CFG configuration");
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
+	AllowInCFG();
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
 		DisableThreadLibraryCalls(hModule);

@@ -16,7 +16,7 @@ std::wstring GetProcessPath(DWORD pid) {
         return L"";
     }
     TCHAR filename[MAX_PATH];
-    if (GetModuleFileNameEx(hProcess, NULL, filename, MAX_PATH) == 0) {
+    if (GetModuleFileNameEx(hProcess, NULL, filename, MAX_PATH) > 0) {
         CloseHandle(hProcess);
         return filename;
     }
