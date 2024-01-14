@@ -229,10 +229,25 @@ namespace Configurator
             btnRefresh_Click(sender, e);
         }
 
-        private void btnExecutables_Click(object sender, EventArgs e)
+        private async Task RestartInjectorIfRunning()
+        {
+            var injectorProcess = GetInjectorProcess();
+            if (injectorProcess != null)
+            {
+                injectorProcess.Kill();
+                await injectorProcess.WaitForExitAsync();
+                Process.Start(".\\ManualInject.exe");
+            }
+        }
+
+        private async void btnExecutables_Click(object sender, EventArgs e)
         {
             (new BrowserSelector()).ShowDialog();
             RecalculateBrowserCount();
+            if (systemHelper.GetExecutables().Count != 0)
+            {
+                await RestartInjectorIfRunning();
+            }
         }
         Color? originalBtnColor = null;
         Font? btnBoldFont = null;

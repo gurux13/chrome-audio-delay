@@ -14,10 +14,6 @@ int WINAPI WinMain(HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is th
     LPSTR szCmdLine,        // Command line arguments.  similar to argv in standard C programs
     int iCmdShow)          // Start window maximized, minimized, etc. 
 {
-    /*if (argc == 2) {
-        Inject(atoi(argv[1]), L"ChromePatcherDll.dll");
-        return;
-    }*/
     HKEY execKeyHandle;
     if (RegOpenKey(HKEY_LOCAL_MACHINE, L"SOFTWARE\\gurux13\\ChromePatcher\\executables", &execKeyHandle) != ERROR_SUCCESS) {
         return 1;
@@ -54,8 +50,7 @@ int WINAPI WinMain(HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is th
                 //std::wcout << "Found chrome (" << pid << "), cmdline: " << cmdline << "\n";
                 if (cmdline.find(L"--utility-sub-type=audio.mojom.AudioService") != std::wstring::npos) {
                     std::wcout << "Found process " << pid << ", injecting...\n";
-                    Inject(pid, L"Y:\\github\\Chrome-Audio-Delay-Patcher\\output\\InjectedDll.dll");
-                    //Inject(pid, L"InjectedDll.dll");
+                    Inject(pid, L"InjectedDll.dll");
                 }
             }
 

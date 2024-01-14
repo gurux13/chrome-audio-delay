@@ -504,52 +504,74 @@ BOOL APIENTRY ThreadMain(LPVOID lpModule) {
 	return TRUE;
 }
 
-bool IsCfgActive(HANDLE hProcess) {
-	PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY policy_status;
-	if (!GetProcessMitigationPolicy(hProcess, ProcessControlFlowGuardPolicy, &policy_status, sizeof(policy_status))) {
-		return true;
-	}
-	return policy_status.EnableControlFlowGuard;
-}
-
-void AllowInCFG() {
-	auto current_process = GetCurrentProcess();
-	if (!IsCfgActive(current_process)) {
-		LOG("CFG not active, not configuring");
-		return;
-	}
-
-	LOG("Configuring CFG");
-	void* all_indirect_functions[] = {
-	Hook::Activate,
-	Hook::GetPosition,
-	Hook::GetService,
-	Hook::ReleaseClient,
-	Hook::ReleaseClock,
-	Hook::ReleaseDevice,
-	RegistryThreadMain
-	};
-	DWORD64* all_indirect_functions_int = (DWORD64*)(all_indirect_functions);
-	DWORD64 range_start = all_indirect_functions_int[0];
-	DWORD64 range_end = all_indirect_functions_int[0];
-	for (int i = 0; i < sizeof(all_indirect_functions) / 8; ++i) {
-		range_start = min(range_start, all_indirect_functions_int[i]);
-		range_end = max(range_end, all_indirect_functions_int[i]);
-	}
-	CFG_CALL_TARGET_INFO info[sizeof(all_indirect_functions) / 8];
-	for (int i = 0; i < sizeof(all_indirect_functions) / 8; ++i) {
-		info[i].Offset = all_indirect_functions_int[i] - range_start;
-		info[i].Flags = CFG_CALL_TARGET_VALID;
-	}
-	//__debugbreak();
-	if (!SetProcessValidCallTargets(current_process, (void*)range_start, range_end - range_start + 80, sizeof(all_indirect_functions) / 8, info)) {
-		LOG("CFG ERROR: " << GetLastError());
-	}
-	LOG("Done CFG configuration");
-}
+//bool IsCfgActive(HANDLE hProcess) {
+//	PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY policy_status;
+//	if (!GetProcessMitigationPolicy(hProcess, ProcessControlFlowGuardPolicy, &policy_status, sizeof(policy_status))) {
+//		return true;
+//	}
+//	return policy_status.EnableControlFlowGuard;
+//}
+//bool GetMemoryAllocationBaseAndRegionSize(
+//	PVOID pvAddress,
+//	PVOID* ppvAllocationBase,
+//	PSIZE_T pstRegionSize
+//)
+//{
+//	SIZE_T						stErr = 0;
+//	MEMORY_BASIC_INFORMATION	tMemoryBasicInformation = { 0 };
+//
+//	stErr = VirtualQuery(
+//		pvAddress,
+//		&tMemoryBasicInformation,
+//		sizeof(tMemoryBasicInformation)
+//	);
+//	if (0 == stErr)
+//	{
+//		return false;
+//	}
+//
+//	*ppvAllocationBase = tMemoryBasicInformation.AllocationBase;
+//	*pstRegionSize = tMemoryBasicInformation.RegionSize;
+//	return true;
+//}
+//void AllowInCFG() {
+//	auto current_process = GetCurrentProcess();
+//	if (!IsCfgActive(current_process)) {
+//		LOG("CFG not active, not configuring");
+//		return;
+//	}
+//	return;
+//
+//	LOG("Configuring CFG");
+//	void* all_indirect_functions[] = {
+//	Hook::Activate,
+//	Hook::GetPosition,
+//	Hook::GetService,
+//	Hook::ReleaseClient,
+//	Hook::ReleaseClock,
+//	Hook::ReleaseDevice,
+//	RegistryThreadMain
+//	};
+//	DWORD64* all_indirect_functions_int = (DWORD64*)(all_indirect_functions);
+//	PVOID base;
+//	size_t size;
+//	if (!GetMemoryAllocationBaseAndRegionSize(all_indirect_functions[0], &base, &size)) {
+//		LOG("Unable to get base address!" << GetLastError());
+//	}
+//	CFG_CALL_TARGET_INFO info[sizeof(all_indirect_functions) / 8];
+//	for (int i = 0; i < sizeof(all_indirect_functions) / 8; ++i) {
+//		info[i].Offset = all_indirect_functions_int[i] - (DWORD64)base;
+//		info[i].Flags = CFG_CALL_TARGET_VALID;
+//	}
+//	__debugbreak();
+//	if (!SetProcessValidCallTargets(current_process, base, size, sizeof(all_indirect_functions) / 8, info)) {
+//		LOG("CFG ERROR: " << GetLastError());
+//	}
+//	LOG("Done CFG configuration");
+//}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
-	AllowInCFG();
+	//AllowInCFG();
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH: {
 		DisableThreadLibraryCalls(hModule);
