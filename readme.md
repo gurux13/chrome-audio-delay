@@ -17,7 +17,11 @@ Download binaries, unpack somewhere.
 Run `Configurator.exe`, add the audio device (by selecting it and pressing "->"), set the delay.
 Press the "Run now" button, you can also set it to start with Windows.
 
-**Restart Chrome**, or at least its audio subsystem (by pressing Shift-Esc in Chrome and killing audio subsystem process).
+You can select browsers to run this for (use "Select Browsers" button). This has been tested on Chrome, Edge, and Yandex.Browser, but should theoretically work for any Chromium-based browser.
+
+Edge, Yandex, and Chrome are auto-detected, any other browser can be added manually.
+
+**Restart the browser**, or at least its audio subsystem (by pressing Shift-Esc in Chrome and killing audio subsystem process).
 
 Enjoy!
 
